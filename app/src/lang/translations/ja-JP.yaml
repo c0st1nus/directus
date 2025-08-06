@@ -377,7 +377,7 @@ related_collection: 関連するコレクション
 related_collections: 関連するコレクション
 translations_collection: 翻訳コレクション
 languages_collection: 言語コレクション
-import_data_input_placeholder: CSV または JSON
+import_data_input_placeholder: CSV, JSON, XLS, XLSX...
 import_data_button: インポートを開始
 import_data_indeterminate: データをインポート中...
 import_data_success: '{filename} からデータをインポートしました'

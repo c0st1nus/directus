@@ -125,7 +125,7 @@ function useUpload() {
 										id="import-file"
 										ref="fileInput"
 										type="file"
-										accept="text/csv, application/json"
+										accept="text/csv, application/json, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
 										@change="onChange"
 									/>
 								</label>
@@ -146,7 +146,7 @@ function useUpload() {
 
 				<div class="field full">
 					<v-button small full-width :disabled="!file" :loading="uploading || importing" @click="importData">
-						{{ t('import_data_button') }}
+						Import the file?
 					</v-button>
 				</div>
 			</template>

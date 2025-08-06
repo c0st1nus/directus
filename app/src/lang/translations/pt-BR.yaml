@@ -114,7 +114,7 @@ field_name_translations: Traduções do Nome do Campo
 enter_password_to_enable_tfa: Digite sua senha para ativar a Autenticação em Duas Etapas
 add_field: Adicionar Campo
 role_name: Nome do Cargo
-policy_name: Nome da política 
+policy_name: Nome da política
 branch: Branch
 leaf: Folha
 indeterminate: Indeterminado
@@ -481,7 +481,7 @@ related_collection: Coleções relacionadas
 related_collections: Coleções relacionadas
 translations_collection: Coleção de Traduções
 languages_collection: Coleção de idiomas
-import_data_input_placeholder: CSV ou JSON...
+import_data_input_placeholder: CSV, JSON, XLS, XLSX...
 import_data_button: Iniciar Importação
 import_data_indeterminate: Importando Dados...
 import_data_success: Dados importados com sucesso de {filename}

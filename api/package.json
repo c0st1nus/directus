@@ -66,6 +66,7 @@
 		"test:coverage": "vitest run --coverage"
 	},
 	"dependencies": {
+		"xlsx": "catalog:",
 		"@authenio/samlify-node-xmllint": "catalog:",
 		"@aws-sdk/client-ses": "catalog:",
 		"@directus/app": "workspace:*",

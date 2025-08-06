@@ -302,6 +302,7 @@ catalog:
   vuedraggable: 4.1.0
   wellknown: 0.5.0
   ws: 8.18.3
+  xlsx: 0.18.5
   zod: 4.0.14
   zod-validation-error: 4.0.1
 

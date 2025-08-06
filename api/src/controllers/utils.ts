@@ -11,6 +11,8 @@ import { UtilsService } from '../services/utils.js';
 import asyncHandler from '../utils/async-handler.js';
 import { generateHash } from '../utils/generate-hash.js';
 import { sanitizeQuery } from '../utils/sanitize-query.js';
+import { Readable } from 'stream';
+import * as XLSX from 'xlsx';
 
 const router = Router();
 
@@ -127,17 +129,60 @@ router.post(
 
 		const busboy = Busboy({ headers });
 
-		busboy.on('file', async (_fieldname, fileStream, { mimeType }) => {
-			try {
-				await service.import(req.params['collection']!, mimeType, fileStream);
-			} catch (err: any) {
-				return next(err);
-			}
+        busboy.on('file', async (_fieldname, fileStream, { mimeType }) => {
+            try {
+                if (
+                    mimeType === 'application/vnd.ms-excel' ||
+                    mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                ) {
+                    const chunks: any[] = [];
 
-			return res.status(200).end();
-		});
+                    for await (const chunk of fileStream) {
+                        chunks.push(chunk);
+                    }
 
-		busboy.on('error', (err: Error) => next(err));
+                    const buffer = Buffer.concat(chunks);
+
+                    const workbook = XLSX.read(buffer);
+                    const sheetName = workbook.SheetNames[0];
+
+                    if (!sheetName) {
+                        throw new InvalidPayloadError({ reason: 'Excel file contains no sheets.' });
+                    }
+
+										const worksheet = workbook.Sheets[sheetName];
+
+										if (!worksheet) {
+											throw new InvalidPayloadError({ reason: 'Excel worksheet not found.' });
+										}
+
+										const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    const jsonStream = Readable.from(JSON.stringify(jsonData));
+
+                    await service.import(req.params['collection']!, 'application/json', jsonStream);
+                } else {
+                    await service.import(req.params['collection']!, mimeType, fileStream);
+                }
+            } catch (err: any) {
+                if (err.code === 'Z_DATA_ERROR' || err.message.includes('corrupted')) {
+                    const chunks: any[] = [];
+
+                    for await (const chunk of fileStream) {
+                        chunks.push(chunk);
+
+										}
+
+										return next(new InvalidPayloadError({ reason: 'File is corrupted.' }));
+                }
+
+                return next(err);
+            }
+
+            return res.status(200).end();
+        });
+
+        busboy.on('error', (err: Error) => next(err));
 
 		req.pipe(busboy);
 	}),
