@@ -6,6 +6,7 @@ import Joi from 'joi';
 import collectionExists from '../middleware/collection-exists.js';
 import { respond } from '../middleware/respond.js';
 import { ExportService, ImportService } from '../services/import-export.js';
+import { FieldsService } from '../services/fields.js';
 import { RevisionsService } from '../services/revisions.js';
 import { UtilsService } from '../services/utils.js';
 import asyncHandler from '../utils/async-handler.js';
@@ -156,11 +157,36 @@ router.post(
 											throw new InvalidPayloadError({ reason: 'Excel worksheet not found.' });
 										}
 
-										const jsonData = XLSX.utils.sheet_to_json(worksheet);
+										const jsonData: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet);
 
-                    const jsonStream = Readable.from(JSON.stringify(jsonData));
+										const fieldsService = new FieldsService({ schema: req.schema, accountability: req.accountability });
+										const collectionFields = await fieldsService.readAll(req.params['collection']!);
 
-                    await service.import(req.params['collection']!, 'application/json', jsonStream);
+										const translationMap = new Map<string, string>();
+
+										for (const field of collectionFields) {
+											if (field.meta?.translations) {
+												for (const translation of field.meta.translations) {
+													translationMap.set(translation.translation, field.field);
+												}
+											}
+										}
+
+										if (translationMap.size > 0) {
+											for (const row of jsonData) {
+												for (const key in row) {
+													if (translationMap.has(key)) {
+														const newKey = translationMap.get(key)!;
+														row[newKey] = row[key];
+														delete row[key];
+													}
+												}
+											}
+										}
+
+										const jsonStream = Readable.from(JSON.stringify(jsonData));
+
+										await service.import(req.params['collection']!, 'application/json', jsonStream);
                 } else {
                     await service.import(req.params['collection']!, mimeType, fileStream);
                 }
