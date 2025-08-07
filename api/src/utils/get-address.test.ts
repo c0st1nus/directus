@@ -26,6 +26,7 @@ describe('getAddress', async () => {
 	const serverHost = '127.0.0.1';
 	const serverSocket = '/tmp/server-test.sock';
 	const serverPort = await getPort();
+	const isWindows = process.platform === 'win32';
 
 	test('Should return unix socket before server is listening when path is provided', async () => {
 		const server = await createServer();
@@ -49,7 +50,7 @@ describe('getAddress', async () => {
 		expect(getAddress(server)).toBe(`${serverHost}:${serverPort}`);
 	});
 
-	test('Should return unix socket when path is provided', async () => {
+	test.skipIf(isWindows)('Should return unix socket when path is provided', async () => {
 		const server = await createServer({ path: serverSocket });
 
 		expect(getAddress(server)).toBe(serverSocket);

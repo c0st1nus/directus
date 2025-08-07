@@ -19,7 +19,7 @@ const props = withDefaults(
 	defineProps<{
 		collection: string;
 		field: string;
-		type: LocalType | null;
+		type?: LocalType | null;
 	}>(),
 	{
 		type: null,
@@ -93,7 +93,7 @@ async function save() {
 <template>
 	<v-drawer :model-value="isOpen" :title="title" persistent @cancel="cancel" @apply="save" @update:model-value="cancel">
 		<field-detail-simple
-			v-if="!showAdvanced"
+			v-if="!showAdvanced && collectionInfo"
 			:collection="collectionInfo"
 			:search="search"
 			@save="save"
@@ -126,7 +126,7 @@ async function save() {
 			</v-input>
 		</template>
 
-		<field-detail-advanced v-if="showAdvanced" :collection="collectionInfo" :current-tab="currentTab[0]" @save="save" />
+		<field-detail-advanced v-if="showAdvanced" :collection="collectionInfo" :current-tab="currentTab[0] || 'schema'" @save="save" />
 	</v-drawer>
 </template>
 

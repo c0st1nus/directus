@@ -10,7 +10,7 @@ import { useExtensions } from '@/extensions';
 const props = withDefaults(
 	defineProps<{
 		collection: Collection;
-		search: string | null;
+		search?: string | null;
 	}>(),
 	{
 		search: null,
@@ -162,7 +162,7 @@ function toggleInterface(id: string) {
 				<transition-expand>
 					<field-configuration
 						v-if="chosenInterface && !!group.interfaces.some((inter) => inter.id === chosenInterface)"
-						:row="configRow"
+						:row="configRow ?? undefined"
 						@save="$emit('save')"
 						@toggle-advanced="$emit('toggleAdvanced')"
 					/>

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import path from 'node:path';
 
 // Mock all external dependencies before any imports
 vi.mock('chalk', () => ({
@@ -154,8 +155,8 @@ describe('create function', () => {
 
 			// Act & Assert
 			await expect(() => create('test-project')).rejects.toThrow('process.exit called with 0');
-			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining('uploads'));
-			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining('extensions'));
+			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining(path.join('test-project', 'uploads')));
+			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining(path.join('test-project', 'extensions')));
 		});
 	});
 
@@ -172,8 +173,8 @@ describe('create function', () => {
 
 			// Act & Assert
 			await expect(() => create('test-project')).rejects.toThrow('process.exit called with 0');
-			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining('test-project/uploads'));
-			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining('test-project/extensions'));
+			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining(path.join('test-project', 'uploads')));
+			expect(mockFse.mkdir).toHaveBeenCalledWith(expect.stringContaining(path.join('test-project', 'extensions')));
 		});
 
 		it('should initialize npm project', async () => {

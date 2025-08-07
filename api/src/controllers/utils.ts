@@ -130,85 +130,84 @@ router.post(
 
 		const busboy = Busboy({ headers });
 
-        busboy.on('file', async (_fieldname, fileStream, { mimeType }) => {
-            try {
-                if (
-                    mimeType === 'application/vnd.ms-excel' ||
-                    mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                ) {
-                    const chunks: any[] = [];
+		busboy.on('file', async (_fieldname, fileStream, { mimeType }) => {
+			try {
+				if (
+					mimeType === 'application/vnd.ms-excel' ||
+					mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+				) {
+					const chunks: any[] = [];
 
-                    for await (const chunk of fileStream) {
-                        chunks.push(chunk);
-                    }
+					for await (const chunk of fileStream) {
+						chunks.push(chunk);
+					}
 
-                    const buffer = Buffer.concat(chunks);
+					const buffer = Buffer.concat(chunks);
 
-                    const workbook = XLSX.read(buffer);
-                    const sheetName = workbook.SheetNames[0];
+					const workbook = XLSX.read(buffer);
+					const sheetName = workbook.SheetNames[0];
 
-                    if (!sheetName) {
-                        throw new InvalidPayloadError({ reason: 'Excel file contains no sheets.' });
-                    }
+					if (!sheetName) {
+						throw new InvalidPayloadError({ reason: 'Excel file contains no sheets.' });
+					}
 
-										const worksheet = workbook.Sheets[sheetName];
+					const worksheet = workbook.Sheets[sheetName];
 
-										if (!worksheet) {
-											throw new InvalidPayloadError({ reason: 'Excel worksheet not found.' });
-										}
+					if (!worksheet) {
+						throw new InvalidPayloadError({ reason: 'Excel worksheet not found.' });
+					}
 
-										const jsonData: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet);
+					const jsonData: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet);
 
-										const fieldsService = new FieldsService({ schema: req.schema, accountability: req.accountability });
-										const collectionFields = await fieldsService.readAll(req.params['collection']!);
+					const fieldsService = new FieldsService({ schema: req.schema, accountability: req.accountability });
+					const collectionFields = await fieldsService.readAll(req.params['collection']!);
 
-										const translationMap = new Map<string, string>();
+					const translationMap = new Map<string, string>();
 
-										for (const field of collectionFields) {
-											if (field.meta?.translations) {
-												for (const translation of field.meta.translations) {
-													translationMap.set(translation.translation, field.field);
-												}
-											}
-										}
+					for (const field of collectionFields) {
+						if (field.meta?.translations) {
+							for (const translation of field.meta.translations) {
+								translationMap.set(translation.translation, field.field);
+							}
+						}
+					}
 
-										if (translationMap.size > 0) {
-											for (const row of jsonData) {
-												for (const key in row) {
-													if (translationMap.has(key)) {
-														const newKey = translationMap.get(key)!;
-														row[newKey] = row[key];
-														delete row[key];
-													}
-												}
-											}
-										}
+					if (translationMap.size > 0) {
+						for (const row of jsonData) {
+							for (const key in row) {
+								if (translationMap.has(key)) {
+									const newKey = translationMap.get(key)!;
+									row[newKey] = row[key];
+									delete row[key];
+								}
+							}
+						}
+					}
 
-										const jsonStream = Readable.from(JSON.stringify(jsonData));
+					const jsonStream = Readable.from(JSON.stringify(jsonData));
 
-										await service.import(req.params['collection']!, 'application/json', jsonStream);
-                } else {
-                    await service.import(req.params['collection']!, mimeType, fileStream);
-                }
-            } catch (err: any) {
-                if (err.code === 'Z_DATA_ERROR' || err.message.includes('corrupted')) {
-                    const chunks: any[] = [];
+					await service.import(req.params['collection']!, 'application/json', jsonStream);
+				} else {
+					await service.import(req.params['collection']!, mimeType, fileStream);
+				}
+			} catch (err: any) {
+				if (err.code === 'Z_DATA_ERROR' || err.message.includes('corrupted')) {
+					const chunks: any[] = [];
 
-                    for await (const chunk of fileStream) {
-                        chunks.push(chunk);
+					for await (const chunk of fileStream) {
+						chunks.push(chunk);
+					}
 
-										}
+					return next(new InvalidPayloadError({ reason: 'File is corrupted.' }));
+				}
 
-										return next(new InvalidPayloadError({ reason: 'File is corrupted.' }));
-                }
+				return next(err);
+			}
 
-                return next(err);
-            }
+			return res.status(200).end();
+		});
 
-            return res.status(200).end();
-        });
-
-        busboy.on('error', (err: Error) => next(err));
+		busboy.on('error', (err: Error) => next(err));
 
 		req.pipe(busboy);
 	}),

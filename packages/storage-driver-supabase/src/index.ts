@@ -76,7 +76,8 @@ export class DriverSupabase implements TusDriver {
 	}
 
 	private getAuthenticatedUrl(filepath: string) {
-		return `${this.endpoint}/${join('object/authenticated', this.config.bucket, this.fullPath(filepath))}`;
+		const pathParts = ['object/authenticated', this.config.bucket, this.fullPath(filepath)].filter(Boolean);
+		return `${this.endpoint}/${pathParts.join('/')}`;
 	}
 
 	private getResumableUrl() {
