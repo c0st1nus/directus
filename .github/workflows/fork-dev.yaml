@@ -17,7 +17,7 @@ env:
   # Замените YOUR_GITHUB_USERNAME на ваш логин GitHub
   # Замените YOUR_DOCKERHUB_USERNAME на ваш логин Docker Hub
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
-  DOCKERHUB_IMAGE: docker.io/YOUR_DOCKERHUB_USERNAME/${{ github.event.repository.name }}
+  DOCKERHUB_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
 
 jobs:
   build-and-push-image:
