@@ -1,0 +1,74 @@
+# Имя рабочего процесса
+name: Build and Push Docker Image to GHCR and Docker Hub
+
+# Триггер: запускать при пуше в ветку 'main'
+on:
+  push:
+    tags:
+      - 'dev-v[0-9]*'
+
+# Права доступа, необходимые для публикации
+permissions:
+  contents: read
+  packages: write
+
+# Переменные окружения для имен образов
+env:
+  # Замените YOUR_GITHUB_USERNAME на ваш логин GitHub
+  # Замените YOUR_DOCKERHUB_USERNAME на ваш логин Docker Hub
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+  DOCKERHUB_IMAGE: docker.io/YOUR_DOCKERHUB_USERNAME/${{ github.event.repository.name }}
+
+jobs:
+  build-and-push-image:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Клонируем код из репозитория
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Настройка QEMU и Docker Buildx для мультиплатформенной сборки
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Логин в GitHub Container Registry (GHCR)
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 4. Логин в Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 5. Извлечение метаданных (тегов) для Docker-образов
+      # Мы указываем оба реестра в 'images'
+      - name: Extract metadata for Docker image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ env.DOCKERHUB_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable=true
+            type=sha,prefix=,format=short
+
+      # 6. Сборка и публикация образа в оба реестра
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
