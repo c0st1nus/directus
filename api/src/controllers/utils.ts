@@ -158,33 +158,95 @@ router.post(
 					}
 
 					const jsonData: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet);
-
 					const fieldsService = new FieldsService({ schema: req.schema, accountability: req.accountability });
-					const collectionFields = await fieldsService.readAll(req.params['collection']!);
 
-					const translationMap = new Map<string, string>();
+					const headerToPathMap = new Map<string, string>();
+					const conflicts = new Map<string, number>();
 
-					for (const field of collectionFields) {
-						if (field.meta?.translations) {
-							for (const translation of field.meta.translations) {
-								translationMap.set(translation.translation, field.field);
+					const discoverFields = async (collection: string, pathPrefix = '', visited = new Set<string>()) => {
+						if (visited.has(collection)) return;
+						visited.add(collection);
+
+						const fields = await fieldsService.readAll(collection);
+
+						for (const field of fields) {
+							const currentPath = pathPrefix + field.field;
+							const potentialHeaders = [field.field];
+
+							if (field.meta?.translations) {
+								for (const translation of field.meta.translations) {
+									if (translation.translation) {
+										potentialHeaders.push(translation.translation);
+									}
+								}
 							}
-						}
-					}
 
-					if (translationMap.size > 0) {
-						for (const row of jsonData) {
-							for (const key in row) {
-								if (translationMap.has(key)) {
-									const newKey = translationMap.get(key)!;
-									row[newKey] = row[key];
-									delete row[key];
+							for (const header of potentialHeaders) {
+								const lowerHeader = header.toLowerCase();
+								conflicts.set(lowerHeader, (conflicts.get(lowerHeader) ?? 0) + 1);
+								headerToPathMap.set(lowerHeader, currentPath);
+							}
+
+							if (pathPrefix) {
+								const lowerCurrentPath = currentPath.toLowerCase();
+								headerToPathMap.set(lowerCurrentPath, currentPath);
+							}
+
+							if (field.meta?.special?.includes('m2o') || field.meta?.special?.includes('o2o')) {
+								const relatedCollection = field.schema?.foreign_key_table;
+
+								if (relatedCollection) {
+									await discoverFields(relatedCollection, `${field.field}.`, new Set(visited));
 								}
 							}
 						}
+					};
+
+					await discoverFields(req.params['collection']!);
+
+					for (const [key, count] of conflicts.entries()) {
+						if (count > 1) {
+							headerToPathMap.delete(key);
+						}
 					}
 
-					const jsonStream = Readable.from(JSON.stringify(jsonData));
+					const setByPath = (obj: any, path: string, value: any) => {
+						const keys = path.split('.');
+						let current = obj;
+
+						for (let i = 0; i < keys.length - 1; i++) {
+							const key = keys[i]!;
+
+							if (current[key] === undefined) {
+								current[key] = {};
+							}
+
+							current = current[key];
+						}
+
+						current[keys[keys.length - 1]!] = value;
+					};
+
+					const transformedData: Record<string, any>[] = [];
+
+					for (const row of jsonData) {
+						const newRow: Record<string, any> = {};
+
+						for (const header in row) {
+							const lowerHeader = header.toLowerCase();
+
+							if (headerToPathMap.has(lowerHeader)) {
+								const path = headerToPathMap.get(lowerHeader)!;
+								setByPath(newRow, path, row[header]);
+							} else {
+								newRow[header] = row[header];
+							}
+						}
+
+						transformedData.push(newRow);
+					}
+
+					const jsonStream = Readable.from(JSON.stringify(transformedData));
 
 					await service.import(req.params['collection']!, 'application/json', jsonStream);
 				} else {

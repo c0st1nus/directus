@@ -126,7 +126,12 @@ async function save() {
 			</v-input>
 		</template>
 
-		<field-detail-advanced v-if="showAdvanced" :collection="collectionInfo" :current-tab="currentTab[0] || 'schema'" @save="save" />
+		<field-detail-advanced
+			v-if="showAdvanced"
+			:collection="collectionInfo"
+			:current-tab="currentTab[0] || 'schema'"
+			@save="save"
+		/>
 	</v-drawer>
 </template>
 
