@@ -173,17 +173,14 @@ router.post(
 							const currentPath = pathPrefix + field.field;
 							const fieldNameLower = field.field.toLowerCase();
 
-							// Приоритет для имени поля
 							fieldNamePriority.set(fieldNameLower, currentPath);
 							headerToPathMap.set(fieldNameLower, currentPath);
 
-							// Добавляем переводы только если они не конфликтуют с именем поля
 							if (field.meta?.translations) {
 								for (const translation of field.meta.translations) {
 									if (translation.translation) {
 										const translationLower = translation.translation.toLowerCase();
 
-										// Переводы имеют меньший приоритет чем имена полей
 										if (!fieldNamePriority.has(translationLower)) {
 											headerToPathMap.set(translationLower, currentPath);
 										}
@@ -202,6 +199,14 @@ router.post(
 								if (relatedCollection) {
 									await discoverFields(relatedCollection, `${field.field}.`, new Set(visited));
 								}
+							} else if (field.meta?.special?.includes('o2m')) {
+								const relation = req.schema.relations.find(
+									(rel) => rel.collection === collection && rel.field === field.field
+								);
+
+								if (relation?.meta?.one_collection) {
+									await discoverFields(relation.meta.one_collection, `${field.field}.create.`, new Set(visited));
+								}
 							}
 						}
 					};
@@ -211,6 +216,35 @@ router.post(
 					const setByPath = (obj: any, path: string, value: any) => {
 						const keys = path.split('.');
 						let current = obj;
+
+						if (path.includes('.create.')) {
+							const [relationField, , ...remainingKeys] = keys;
+
+							if (!relationField) return;
+
+							if (current[relationField] === undefined) {
+								current[relationField] = { create: [{}] };
+							} else if (!current[relationField].create || !Array.isArray(current[relationField].create)) {
+								current[relationField].create = [{}];
+							} else if (current[relationField].create.length === 0) {
+								current[relationField].create.push({});
+							}
+
+							let createCurrent = current[relationField].create[0];
+
+							for (let i = 0; i < remainingKeys.length - 1; i++) {
+								const key = remainingKeys[i]!;
+
+								if (createCurrent[key] === undefined) {
+									createCurrent[key] = {};
+								}
+
+								createCurrent = createCurrent[key];
+							}
+
+							createCurrent[remainingKeys[remainingKeys.length - 1]!] = value;
+							return;
+						}
 
 						for (let i = 0; i < keys.length - 1; i++) {
 							const key = keys[i]!;
