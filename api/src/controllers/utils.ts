@@ -161,7 +161,7 @@ router.post(
 					const fieldsService = new FieldsService({ schema: req.schema, accountability: req.accountability });
 
 					const headerToPathMap = new Map<string, string>();
-					const conflicts = new Map<string, number>();
+					const fieldNamePriority = new Map<string, string>();
 
 					const discoverFields = async (collection: string, pathPrefix = '', visited = new Set<string>()) => {
 						if (visited.has(collection)) return;
@@ -171,20 +171,24 @@ router.post(
 
 						for (const field of fields) {
 							const currentPath = pathPrefix + field.field;
-							const potentialHeaders = [field.field];
+							const fieldNameLower = field.field.toLowerCase();
 
+							// Приоритет для имени поля
+							fieldNamePriority.set(fieldNameLower, currentPath);
+							headerToPathMap.set(fieldNameLower, currentPath);
+
+							// Добавляем переводы только если они не конфликтуют с именем поля
 							if (field.meta?.translations) {
 								for (const translation of field.meta.translations) {
 									if (translation.translation) {
-										potentialHeaders.push(translation.translation);
+										const translationLower = translation.translation.toLowerCase();
+
+										// Переводы имеют меньший приоритет чем имена полей
+										if (!fieldNamePriority.has(translationLower)) {
+											headerToPathMap.set(translationLower, currentPath);
+										}
 									}
 								}
-							}
-
-							for (const header of potentialHeaders) {
-								const lowerHeader = header.toLowerCase();
-								conflicts.set(lowerHeader, (conflicts.get(lowerHeader) ?? 0) + 1);
-								headerToPathMap.set(lowerHeader, currentPath);
 							}
 
 							if (pathPrefix) {
@@ -203,12 +207,6 @@ router.post(
 					};
 
 					await discoverFields(req.params['collection']!);
-
-					for (const [key, count] of conflicts.entries()) {
-						if (count > 1) {
-							headerToPathMap.delete(key);
-						}
-					}
 
 					const setByPath = (obj: any, path: string, value: any) => {
 						const keys = path.split('.');
