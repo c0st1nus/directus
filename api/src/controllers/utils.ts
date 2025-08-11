@@ -162,9 +162,13 @@ router.post(
 
 					const headerToPathMap = new Map<string, string>();
 					const fieldNamePriority = new Map<string, string>();
+					const relationFieldPaths = new Map<string, string>();
 
 					const discoverFields = async (collection: string, pathPrefix = '', visited = new Set<string>()) => {
-						if (visited.has(collection)) return;
+						if (visited.has(collection)) {
+							return;
+						}
+
 						visited.add(collection);
 
 						const fields = await fieldsService.readAll(collection);
@@ -173,14 +177,32 @@ router.post(
 							const currentPath = pathPrefix + field.field;
 							const fieldNameLower = field.field.toLowerCase();
 
+							// Main field name always has highest priority
 							fieldNamePriority.set(fieldNameLower, currentPath);
 							headerToPathMap.set(fieldNameLower, currentPath);
 
+							// For related fields also store simple field name
+							if (pathPrefix && pathPrefix.includes('.create.')) {
+								relationFieldPaths.set(fieldNameLower, currentPath);
+
+								// Add translations if available
+								if (field.meta?.translations) {
+									for (const translation of field.meta.translations) {
+										if (translation.translation) {
+											const translationLower = translation.translation.toLowerCase();
+											relationFieldPaths.set(translationLower, currentPath);
+										}
+									}
+								}
+							}
+
+							// Process field translations
 							if (field.meta?.translations) {
 								for (const translation of field.meta.translations) {
 									if (translation.translation) {
 										const translationLower = translation.translation.toLowerCase();
 
+										// Translations have lower priority than field names
 										if (!fieldNamePriority.has(translationLower)) {
 											headerToPathMap.set(translationLower, currentPath);
 										}
@@ -188,6 +210,7 @@ router.post(
 								}
 							}
 
+							// Add full path (for cases when user uses full path)
 							if (pathPrefix) {
 								const lowerCurrentPath = currentPath.toLowerCase();
 								headerToPathMap.set(lowerCurrentPath, currentPath);
@@ -201,11 +224,12 @@ router.post(
 								}
 							} else if (field.meta?.special?.includes('o2m')) {
 								const relation = req.schema.relations.find(
-									(rel) => rel.collection === collection && rel.field === field.field
+									(rel) => rel.related_collection === collection && rel.meta?.one_field === field.field,
 								);
 
-								if (relation?.meta?.one_collection) {
-									await discoverFields(relation.meta.one_collection, `${field.field}.create.`, new Set(visited));
+								if (relation?.collection) {
+									// For o2m use .create. prefix so fields end up in relationFieldPaths
+									await discoverFields(relation.collection, `${field.field}.create.`, new Set(visited));
 								}
 							}
 						}
@@ -217,19 +241,24 @@ router.post(
 						const keys = path.split('.');
 						let current = obj;
 
+						// Special handling for o2m relationships with create operations
 						if (path.includes('.create.')) {
-							const [relationField, , ...remainingKeys] = keys;
+							const [relationField, createKey, ...remainingKeys] = keys;
 
-							if (!relationField) return;
+							if (!relationField || createKey !== 'create') return;
 
+							// Create structure for o2m relationship
 							if (current[relationField] === undefined) {
-								current[relationField] = { create: [{}] };
+								current[relationField] = { create: [{}], update: [], delete: [] };
 							} else if (!current[relationField].create || !Array.isArray(current[relationField].create)) {
 								current[relationField].create = [{}];
+								if (!current[relationField].update) current[relationField].update = [];
+								if (!current[relationField].delete) current[relationField].delete = [];
 							} else if (current[relationField].create.length === 0) {
 								current[relationField].create.push({});
 							}
 
+							// Set value in first element of create array
 							let createCurrent = current[relationField].create[0];
 
 							for (let i = 0; i < remainingKeys.length - 1; i++) {
@@ -246,6 +275,7 @@ router.post(
 							return;
 						}
 
+						// Regular handling for normal fields (including m2o)
 						for (let i = 0; i < keys.length - 1; i++) {
 							const key = keys[i]!;
 
@@ -266,11 +296,21 @@ router.post(
 
 						for (const header in row) {
 							const lowerHeader = header.toLowerCase();
+							let path: string | undefined;
 
+							// First check main header map (main collection fields have priority)
 							if (headerToPathMap.has(lowerHeader)) {
-								const path = headerToPathMap.get(lowerHeader)!;
+								path = headerToPathMap.get(lowerHeader)!;
+							}
+							// If not found in main collection, check related fields map
+							else if (relationFieldPaths.has(lowerHeader)) {
+								path = relationFieldPaths.get(lowerHeader)!;
+							}
+
+							if (path) {
 								setByPath(newRow, path, row[header]);
 							} else {
+								// If field not found, keep as is (useful for debugging)
 								newRow[header] = row[header];
 							}
 						}
