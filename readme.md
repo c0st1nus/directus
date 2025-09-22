@@ -1,45 +1,27 @@
-## Сборка и запуск через Docker
-### Сборка образа
-```bash
-docker build -t directus .
-```
+# Directus c0st1nus fork
 
-### Запуск контейнера
-```bash
-docker run -p 8055:8055 directus
-```
+## Сборка и запуск
+1. Клонируйте репозиторий `git clone ...`
 
-### Переменные окружения
-В Dockerfile по умолчанию используются:
-- `DB_CLIENT=sqlite3`
-- `DB_FILENAME=/directus/database/database.sqlite`
-- `NODE_ENV=production`
-- `NPM_CONFIG_UPDATE_NOTIFIER=false`
+2. Установите зависимости `cd ... && pnpm i`
 
-*Вы можете переопределить их при запуске контейнера через флаг `-e`.*
+3. Запустите билд проекта `pnpm run build`
 
-## Запуск без Docker
+4. Ждите. Билд может занять как 1, так и 10 минут
 
-1. Установите зависимости:
-   ```bash
-   npm i
-   ```
-2. Соберите проект:
-   ```bash
-   npm run build
-   ```
-3. (Опционально) Установите переменные окружения, если требуется изменить стандартные значения:
-   ```bash
-   export DB_CLIENT=sqlite3
-   export DB_FILENAME=./database/database.sqlite
-   export NODE_ENV=production
-   export NPM_CONFIG_UPDATE_NOTIFIER=false
-   ```
-4. Запустите проект:
-   ```bash
-   node cli.js bootstrap
-   ```
-5. Для запуска с помощью pm2:
-   ```bash
-   pm2-runtime start ecosystem.config.cjs
-   ```
+5. Зайдите в директорию `directus` (`cd directus`)
+
+6. Подготовьте `.env` ВНУТРИ директории из которой будете запускать последующие комманды. Пример:
+	```env
+		DB_CLIENT="sqlite3" \
+		DB_FILENAME="/directus/database/database.sqlite" \
+		NODE_ENV="production" \
+		NPM_CONFIG_UPDATE_NOTIFIER="false"
+	```
+	*P.S. @zug_UnDead, я хз чо тут и как и вообще зачем этот env нужон, но на дальнейший проект это не влияет, можно будет потом подсовывать в дальнейшем свои конфиги и все будет хорошо. Если как я не разберешься чо тут и как, то можешь оставлять этот example env, оно работает*
+
+7. Запустите комманду `node cli.js bootstrap`, которая подготовит директус к запуску
+
+8. Запустите проект через `node cli.js start`
+
+9. Если вы хотите работать через pm2, то выходите обратно в корневую директорию и запускайти проект через `pm2-runtime start ecosystem.config.cjs`
